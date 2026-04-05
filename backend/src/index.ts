@@ -175,14 +175,12 @@ app.post('/api/ai/chat', async (req, res) => {
       profile = memoryProfile;
     }
 
-    const reply = await generateFinancialAdvice(
-      message,
-      JSON.stringify(profile),
-    );
+    const reply = await generateFinancialAdvice(message, profile as any);
 
     res.json({ reply });
   } catch (e) {
     console.error('[AI error]', e);
+
     res.status(500).json({
       error: 'AI unavailable',
       reply: 'Please try again in a moment.',
@@ -202,11 +200,12 @@ app.post('/api/ai/explain-life-event', async (req, res) => {
       preset.allocation,
     )}`;
 
-    const reply = await generateFinancialAdvice(prompt, '{}');
+    const reply = await generateFinancialAdvice(prompt, {});
 
     res.json({ reply });
   } catch (e) {
     console.error('[AI explain error]', e);
+
     res.json({
       reply: 'A balanced split helps you grow wealth while keeping liquidity.',
     });

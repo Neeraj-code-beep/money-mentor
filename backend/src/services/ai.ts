@@ -1,43 +1,179 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import OpenAI from "openai";
+import Groq from 'groq-sdk';
+import dotenv from 'dotenv';
 
-export async function generateFinancialAdvice(prompt: string, contextJson: string): Promise<string> {
-  const system = `You are Money Mentor, a concise, friendly personal finance coach for Indian users. 
-Use short paragraphs and bullet points when helpful. Never promise guaranteed returns. 
-Context about the user (JSON): ${contextJson}`;
+dotenv.config();
 
-  const geminiKey = process.env.GEMINI_API_KEY;
-  if (geminiKey) {
-    const genAI = new GoogleGenerativeAI(geminiKey);
-    const tryModels = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-flash-latest"];
-    let lastErr: unknown;
-    for (const name of tryModels) {
-      try {
-        const model = genAI.getGenerativeModel({ model: name });
-        const r = await model.generateContent([{ text: system + "\n\nUser:\n" + prompt }]);
-        const text = r.response.text();
-        if (text) return text;
-      } catch (e) {
-        lastErr = e;
+/*
+|--------------------------------------------------------------------------
+| Validate Environment Variables
+|--------------------------------------------------------------------------
+*/
+
+const API_KEY = process.env.GROQ_API_KEY;
+
+if (!API_KEY) {
+  throw new Error('❌ GROQ_API_KEY is missing in .env file');
+}
+
+/*
+|--------------------------------------------------------------------------
+| Initialize Groq Client
+|--------------------------------------------------------------------------
+*/
+
+const groq = new Groq({
+  apiKey: API_KEY,
+});
+
+/*
+|--------------------------------------------------------------------------
+| Types
+|--------------------------------------------------------------------------
+*/
+
+type UserContext = {
+  age?: number;
+  income?: number;
+  savings?: number;
+  goals?: string[];
+  riskLevel?: 'low' | 'medium' | 'high';
+};
+
+/*
+|--------------------------------------------------------------------------
+| Helper: Sleep (for retries)
+|--------------------------------------------------------------------------
+*/
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/*
+|--------------------------------------------------------------------------
+| Prompt Builder
+|--------------------------------------------------------------------------
+*/
+
+function buildSystemPrompt(context: UserContext) {
+  return `
+You are **Money Mentor**, a smart personal finance assistant for Indian users.
+
+Rules:
+• Give practical financial advice
+• Use simple language
+• Use bullet points
+• Never promise guaranteed returns
+• Focus on saving, budgeting, investing safely
+
+User Information:
+Age: ${context.age ?? 'Unknown'}
+Monthly Income: ₹${context.income ?? 'Unknown'}
+Savings: ₹${context.savings ?? 'Unknown'}
+Risk Level: ${context.riskLevel ?? 'Unknown'}
+Financial Goals: ${context.goals?.join(', ') ?? 'Unknown'}
+
+Your job is to help the user make better financial decisions.
+`;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Core AI Function
+|--------------------------------------------------------------------------
+*/
+
+export async function generateFinancialAdvice(
+  prompt: string,
+  context: UserContext = {},
+): Promise<string> {
+  const systemPrompt = buildSystemPrompt(context);
+
+  const MAX_RETRIES = 3;
+  const TIMEOUT = 20000;
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const completion = (await Promise.race([
+        groq.chat.completions.create({
+          model: 'llama3-8b-8192',
+          temperature: 0.7,
+          max_tokens: 400,
+
+          messages: [
+            {
+              role: 'system',
+              content: systemPrompt,
+            },
+            {
+              role: 'user',
+              content: prompt,
+            },
+          ],
+        }),
+
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('AI request timeout')), TIMEOUT),
+        ),
+      ])) as any;
+
+      const reply = completion?.choices?.[0]?.message?.content?.trim();
+
+      if (!reply) {
+        throw new Error('Empty response from AI');
       }
+
+      return reply;
+    } catch (error: any) {
+      console.error(`⚠️ AI attempt ${attempt} failed:`, error.message);
+
+      if (attempt === MAX_RETRIES) {
+        return fallbackResponse(prompt);
+      }
+
+      await sleep(1000 * attempt);
     }
-    console.warn("[ai] Gemini failed:", lastErr);
   }
 
-  const openaiKey = process.env.OPENAI_API_KEY;
-  if (openaiKey) {
-    const openai = new OpenAI({ apiKey: openaiKey });
-    const chat = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: prompt },
-      ],
-      temperature: 0.6,
-      max_tokens: 800,
-    });
-    return chat.choices[0]?.message?.content ?? "I could not generate a response.";
+  return fallbackResponse(prompt);
+}
+
+/*
+|--------------------------------------------------------------------------
+| Fallback Response
+|--------------------------------------------------------------------------
+*/
+
+function fallbackResponse(prompt: string): string {
+  if (prompt.toLowerCase().includes('invest')) {
+    return `
+Here are some basic investment tips:
+
+• Start with SIP in index mutual funds
+• Build an emergency fund (3–6 months expenses)
+• Avoid high-risk trading
+• Diversify your investments
+`;
   }
 
-  return `Money Mentor (offline mode): Based on your numbers, focus on emergency fund → high-interest debt → diversified SIPs. ${prompt.slice(0, 200)}`;
+  if (prompt.toLowerCase().includes('save')) {
+    return `
+Tips to save money:
+
+• Follow the 50-30-20 rule
+• Track monthly expenses
+• Automate savings
+• Avoid unnecessary subscriptions
+`;
+  }
+
+  return `
+I'm temporarily unable to generate detailed advice.
+
+Basic financial tips:
+
+• Save at least 20% of your income
+• Build an emergency fund
+• Invest long-term in diversified assets
+`;
 }
