@@ -1,51 +1,58 @@
-"use client";
+'use client';
 
-import { useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
-import { MessageCircle, Send, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { api } from "@/lib/api";
-import { cn } from "@/lib/utils";
+import { useEffect, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { MessageCircle, Send, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { api } from '@/lib/api';
+import { cn } from '@/lib/utils';
 
-type Msg = { id: string; role: "user" | "assistant"; text: string };
+type Msg = { id: string; role: 'user' | 'assistant'; text: string };
 
 export function FloatingChat() {
   const [open, setOpen] = useState(false);
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([
     {
-      id: "welcome",
-      role: "assistant",
-      text: "Hi! I’m Money Mentor. Ask me about saving, investing, or your dashboard numbers.",
+      id: 'welcome',
+      role: 'assistant',
+      text: 'Hi! I’m Money Mentor. Ask me about saving, investing, or your dashboard numbers.',
     },
   ]);
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
+    endRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, open]);
 
   async function send() {
     const text = input.trim();
     if (!text || loading) return;
-    const userMsg: Msg = { id: crypto.randomUUID(), role: "user", text };
+    const userMsg: Msg = { id: crypto.randomUUID(), role: 'user', text };
     setMessages((m) => [...m, userMsg]);
-    setInput("");
+    setInput('');
     setLoading(true);
     try {
-      const { reply } = await api<{ reply: string }>("/api/ai/chat", {
-        method: "POST",
+      const { reply } = await api<{ reply: string }>('/api/ai/chat', {
+        method: 'POST',
         body: JSON.stringify({ message: text }),
       });
-      setMessages((m) => [...m, { id: crypto.randomUUID(), role: "assistant", text: reply }]);
+      setMessages((m) => [
+        ...m,
+        { id: crypto.randomUUID(), role: 'assistant', text: reply },
+      ]);
     } catch {
       setMessages((m) => [
         ...m,
-        { id: crypto.randomUUID(), role: "assistant", text: "Something went wrong. Please try again." },
+        {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          text: 'Something went wrong. Please try again.',
+        },
       ]);
     } finally {
       setLoading(false);
@@ -59,8 +66,8 @@ export function FloatingChat() {
         aria-label="Open chat"
         onClick={() => setOpen(true)}
         className={cn(
-          "fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-600 text-white shadow-lift",
-          open && "pointer-events-none opacity-0"
+          'fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-600 text-white shadow-lift',
+          open && 'pointer-events-none opacity-0',
         )}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.97 }}
@@ -74,7 +81,7 @@ export function FloatingChat() {
             initial={{ opacity: 0, y: 24, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 16, scale: 0.96 }}
-            transition={{ type: "spring", stiffness: 320, damping: 28 }}
+            transition={{ type: 'spring', stiffness: 320, damping: 28 }}
             className="fixed bottom-6 right-6 z-50 w-[min(100vw-2rem,400px)]"
           >
             <Card className="overflow-hidden border-emerald-100 shadow-2xl shadow-emerald-900/10">
@@ -97,13 +104,19 @@ export function FloatingChat() {
               <ScrollArea className="h-[min(55vh,420px)] bg-emerald-50/40 p-3">
                 <div className="flex flex-col gap-3 pr-2">
                   {messages.map((m) => (
-                    <div key={m.id} className={cn("flex", m.role === "user" ? "justify-end" : "justify-start")}>
+                    <div
+                      key={m.id}
+                      className={cn(
+                        'flex',
+                        m.role === 'user' ? 'justify-end' : 'justify-start',
+                      )}
+                    >
                       <div
                         className={cn(
-                          "max-w-[85%] rounded-2xl px-3 py-2 text-sm leading-relaxed shadow-sm",
-                          m.role === "user"
-                            ? "rounded-br-md bg-emerald-600 text-white"
-                            : "rounded-bl-md bg-white text-slate-800 ring-1 ring-emerald-100"
+                          'max-w-[85%] rounded-2xl px-3 py-2 text-sm leading-relaxed shadow-sm whitespace-pre-wrap',
+                          m.role === 'user'
+                            ? 'rounded-br-md bg-emerald-600 text-white'
+                            : 'rounded-bl-md bg-white text-slate-800 ring-1 ring-emerald-100',
                         )}
                       >
                         {m.text}
@@ -125,10 +138,15 @@ export function FloatingChat() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   placeholder="Ask about your finances..."
-                  onKeyDown={(e) => e.key === "Enter" && send()}
+                  onKeyDown={(e) => e.key === 'Enter' && send()}
                   className="bg-white"
                 />
-                <Button type="button" onClick={send} disabled={loading} className="shrink-0">
+                <Button
+                  type="button"
+                  onClick={send}
+                  disabled={loading}
+                  className="shrink-0"
+                >
                   <Send className="h-4 w-4" />
                 </Button>
               </div>
